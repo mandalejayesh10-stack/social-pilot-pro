@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: socialpilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-socialpilot}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend API ─────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: socialpilot-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-socialpilot}
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+      - reports:/app/reports
+
+  # ── Frontend ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: socialpilot-frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://backend:3000
+    ports:
+      - '4200:4200'
+    depends_on:
+      - backend
+
+  # ── Orchestrator ────────────────────────────────────────────
+  orchestrator:
+    build:
+      context: .
+      dockerfile: apps/orchestrator/Dockerfile
+    container_name: socialpilot-orchestrator
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-socialpilot}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Ollama (local LLM) ──────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: socialpilot-ollama
+    restart: unless-stopped
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  postgres_data:
+  uploads:
+  reports:
+  ollama_data:

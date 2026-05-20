@@ -1,0 +1,16 @@
+{
+  "name": "@socialpilot/nestjs-libraries",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/client": "6.5.0",
+    "prisma": "6.5.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "@types/node": "18.16.9"
+  }
+}

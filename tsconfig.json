@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": [],
+  "references": [
+    { "path": "./apps/backend" },
+    { "path": "./apps/frontend" },
+    { "path": "./apps/orchestrator" },
+    { "path": "./libraries/nestjs-libraries" }
+  ]
+}

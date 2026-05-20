@@ -1,0 +1,984 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Provider {
+  LOCAL
+  GOOGLE
+  GITHUB
+  GENERIC
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  EDITOR
+  VIEWER
+  USER
+}
+
+enum State {
+  QUEUE
+  PUBLISHED
+  ERROR
+  DRAFT
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  AGENCY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIALING
+  PAST_DUE
+}
+
+enum Period {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  RAZORPAY
+}
+
+enum Platform {
+  INSTAGRAM
+  FACEBOOK
+  YOUTUBE
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum JobType {
+  BASIC_STATS
+  POST_METRICS
+  FULL_ANALYTICS
+  PUBLISH_POST
+  SEND_REPORT
+  REFRESH_TOKEN
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  PROCESSED_VIDEO
+}
+
+enum ReportStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum AnnouncementColor {
+  INFO
+  WARNING
+  ERROR
+}
+
+enum ShortLinkPreference {
+  ASK
+  YES
+  NO
+}
+
+enum APPROVED_SUBMIT_FOR_ORDER {
+  NO
+  WAITING_CONFIRMATION
+  YES
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  CANCELED
+  COMPLETED
+}
+
+enum From {
+  BUYER
+  SELLER
+}
+
+// ─────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id                    String             @id @default(uuid())
+  email                 String
+  password              String?
+  providerName          Provider
+  providerId            String?
+  name                  String?
+  lastName              String?
+  isSuperAdmin          Boolean            @default(false)
+  bio                   String?
+  pictureUrl            String?
+  timezone              String             @default("UTC")
+  language              String             @default("en")
+  activated             Boolean            @default(true)
+  lastOnline            DateTime           @default(now())
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  lastReadNotifications DateTime           @default(now())
+  twoFactorEnabled      Boolean            @default(false)
+  twoFactorSecret       String?
+  inviteId              String?
+  ip                    String?
+  agent                 String?
+
+  organizations         UserOrganization[]
+  notifications         Notification[]
+  comments              PostComment[]
+  tasks                 Task[]             @relation("assignedTasks")
+  createdTasks          Task[]             @relation("createdTasks")
+  oauthAuthorizations   OAuthAuthorization[]
+
+  @@unique([email, providerName])
+  @@index([email])
+  @@index([inviteId])
+  @@index([lastOnline])
+}
+
+// ─────────────────────────────────────────────
+// ORGANIZATION (BRAND / WORKSPACE)
+// ─────────────────────────────────────────────
+
+model Organization {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  logoUrl       String?
+  website       String?
+  timezone      String   @default("UTC")
+  brandColor    String   @default("#6366f1")
+  apiKey        String?  @unique
+  paymentId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users              UserOrganization[]
+  integrations       Integration[]
+  posts              Post[]
+  media              Media[]
+  subscription       Subscription?
+  payments           Payment[]
+  invoices           Invoice[]
+  usageLimits        UsageLimits?
+  analyticsRaw       AnalyticsRaw[]
+  postMetrics        PostMetrics[]
+  accountMetrics     AccountMetrics[]
+  analyticsSummary   AnalyticsSummary[]
+  jobs               Job[]
+  reports            Report[]
+  notifications      Notification[]
+  tasks              Task[]
+  tags               Tag[]
+  comments           PostComment[]
+  webhooks           Webhook[]
+  oauthApps          OAuthApp[]
+  oauthAuthorizations OAuthAuthorization[]
+  couponsUsed        CouponUsage[]
+  addOns             AddOn[]
+  inboxConversations InboxConversation[]
+
+  @@index([apiKey])
+  @@index([paymentId])
+}
+
+model UserOrganization {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  role           Role         @default(USER)
+  disabled       Boolean      @default(false)
+  invitedEmail   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────
+// SOCIAL INTEGRATIONS
+// ─────────────────────────────────────────────
+
+model Integration {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  platform           Platform
+  internalId         String
+  name               String
+  pictureUrl         String?
+  accessToken        String    // AES-256 encrypted
+  refreshToken       String?   // AES-256 encrypted
+  tokenExpiry        DateTime?
+  refreshNeeded      Boolean   @default(false)
+  disabled           Boolean   @default(false)
+  profileData        String?   // JSON: followers, bio, etc.
+  pageId             String?   // Facebook page ID
+  pageAccessToken    String?   // Facebook page token (encrypted)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  organization       Organization  @relation(fields: [organizationId], references: [id])
+  posts              Post[]
+  accountMetrics     AccountMetrics[]
+  postMetrics        PostMetrics[]
+  analyticsRaw       AnalyticsRaw[]
+
+  @@unique([organizationId, platform, internalId])
+  @@index([organizationId])
+  @@index([platform])
+  @@index([refreshNeeded])
+  @@index([tokenExpiry])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────
+// CONTENT SCHEDULER
+// ─────────────────────────────────────────────
+
+model Post {
+  id             String    @id @default(cuid())
+  organizationId String
+  integrationId  String
+  content        String
+  mediaUrls      String    @default("[]") // JSON array
+  publishDate    DateTime
+  state          State     @default(QUEUE)
+  group          String    // groups multi-platform posts
+  title          String?
+  hashtags       String?
+  settings       String?   // platform-specific JSON
+  error          String?
+  publishedUrl   String?
+  externalId     String?   // ID returned by platform after publish
+  intervalInDays Int?      // for recurring posts
+  parentPostId   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  integration    Integration   @relation(fields: [integrationId], references: [id])
+  parentPost     Post?         @relation("parentPostId", fields: [parentPostId], references: [id])
+  childrenPost   Post[]        @relation("parentPostId")
+  metrics        PostMetrics[]
+  comments       PostComment[]
+  tags           PostTag[]
+  publishLogs    PublishLog[]
+
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([publishDate])
+  @@index([state])
+  @@index([group])
+  @@index([deletedAt])
+  @@index([parentPostId])
+}
+
+model Tag {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  color          String    @default("#6366f1")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  posts          PostTag[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model PostTag {
+  postId    String
+  tagId     String
+  post      Post @relation(fields: [postId], references: [id])
+  tag       Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([postId, tagId])
+}
+
+model PostComment {
+  id             String    @id @default(uuid())
+  postId         String
+  userId         String
+  organizationId String
+  content        String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  post           Post         @relation(fields: [postId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([postId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// MEDIA
+// ─────────────────────────────────────────────
+
+model Media {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  originalName   String?
+  path           String
+  url            String?
+  type           MediaType @default(IMAGE)
+  mimeType       String?
+  fileSize       Int       @default(0)
+  width          Int?
+  height         Int?
+  duration       Float?    // seconds, for video/audio
+  thumbnail      String?
+  alt            String?
+  processed      Boolean   @default(false)
+  processingMeta String?   // JSON: ffmpeg options used
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────
+// DATA PIPELINE — ANALYTICS
+// ─────────────────────────────────────────────
+
+// Raw data fetched from platform APIs — never modified after insert
+model AnalyticsRaw {
+  id             String   @id @default(uuid())
+  organizationId String
+  integrationId  String
+  platform       Platform
+  dataType       String   // "followers", "post_insights", "page_insights", etc.
+  fetchedAt      DateTime @default(now())
+  periodStart    DateTime
+  periodEnd      DateTime
+  rawData        String   // JSON blob from API
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  integration    Integration  @relation(fields: [integrationId], references: [id])
+
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([platform])
+  @@index([dataType])
+  @@index([fetchedAt])
+  @@index([periodStart])
+}
+
+// Computed metrics per post
+model PostMetrics {
+  id             String   @id @default(uuid())
+  organizationId String
+  integrationId  String
+  postId         String
+  platform       Platform
+  computedAt     DateTime @default(now())
+  periodDate     DateTime @db.Date
+
+  // Engagement
+  likes          Int      @default(0)
+  comments       Int      @default(0)
+  shares         Int      @default(0)
+  saves          Int      @default(0)
+  clicks         Int      @default(0)
+  reach          Int      @default(0)
+  impressions    Int      @default(0)
+  videoViews     Int      @default(0)
+  engagementRate Float    @default(0) // computed: (likes+comments+shares)/reach*100
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  integration    Integration  @relation(fields: [integrationId], references: [id])
+  post           Post         @relation(fields: [postId], references: [id])
+
+  @@unique([postId, periodDate])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([platform])
+  @@index([periodDate])
+  @@index([engagementRate])
+}
+
+// Computed metrics per account (daily snapshot)
+model AccountMetrics {
+  id             String   @id @default(uuid())
+  organizationId String
+  integrationId  String
+  platform       Platform
+  periodDate     DateTime @db.Date
+  computedAt     DateTime @default(now())
+
+  // Growth
+  followers      Int      @default(0)
+  following      Int      @default(0)
+  followersGrowth Int     @default(0) // delta from previous day
+  growthPercent  Float    @default(0)
+
+  // Aggregate engagement
+  totalPosts     Int      @default(0)
+  totalLikes     Int      @default(0)
+  totalComments  Int      @default(0)
+  totalShares    Int      @default(0)
+  totalReach     Int      @default(0)
+  totalImpressions Int    @default(0)
+  avgEngagementRate Float @default(0)
+
+  // YouTube specific
+  subscribers    Int?
+  totalViews     Int?
+  watchTimeMinutes Int?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  integration    Integration  @relation(fields: [integrationId], references: [id])
+
+  @@unique([integrationId, periodDate])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([platform])
+  @@index([periodDate])
+}
+
+// Pre-aggregated summary for fast dashboard queries
+model AnalyticsSummary {
+  id             String   @id @default(uuid())
+  organizationId String
+  platform       Platform
+  periodType     String   // "7d", "30d", "90d"
+  computedAt     DateTime @default(now())
+
+  // Summary stats
+  totalFollowers    Int    @default(0)
+  followerGrowth    Int    @default(0)
+  growthPercent     Float  @default(0)
+  avgEngagementRate Float  @default(0)
+  totalPosts        Int    @default(0)
+  totalReach        Int    @default(0)
+  totalImpressions  Int    @default(0)
+  bestPostingHour   Int?   // 0-23
+  bestPostingDay    Int?   // 0-6 (Mon-Sun)
+  topContentType    String? // "video" | "image" | "carousel"
+
+  // JSON arrays for chart data
+  followerTimeline  String @default("[]") // [{date, value}]
+  engagementTimeline String @default("[]")
+  reachTimeline     String @default("[]")
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, platform, periodType])
+  @@index([organizationId])
+  @@index([platform])
+  @@index([computedAt])
+}
+
+// ─────────────────────────────────────────────
+// JOB QUEUE (DB-based, no Redis required)
+// ─────────────────────────────────────────────
+
+model Job {
+  id             String    @id @default(uuid())
+  organizationId String?
+  type           JobType
+  status         JobStatus @default(PENDING)
+  payload        String    @default("{}") // JSON
+  result         String?   // JSON
+  error          String?
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  scheduledAt    DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@index([scheduledAt])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// BILLING & PAYMENTS
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  organizationId     String             @unique
+  tier               SubscriptionTier   @default(FREE)
+  status             SubscriptionStatus @default(ACTIVE)
+  provider           PaymentProvider?
+  externalId         String?            // Stripe subscription ID
+  customerId         String?            // Stripe customer ID
+  period             Period             @default(MONTHLY)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAt           DateTime?
+  cancelledAt        DateTime?
+  trialEndsAt        DateTime?
+  isLifetime         Boolean            @default(false)
+  gracePeriodEndsAt  DateTime?
+  currency           String             @default("usd")
+  amount             Int                @default(0) // in cents
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  organization       Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([externalId])
+  @@index([customerId])
+}
+
+model Payment {
+  id             String          @id @default(uuid())
+  organizationId String
+  amount         Int             // in cents
+  currency       String          @default("usd")
+  status         PaymentStatus   @default(PENDING)
+  provider       PaymentProvider
+  externalId     String?         // Stripe payment intent ID / Razorpay order ID
+  description    String?
+  metadata       String?         // JSON
+  taxAmount      Int             @default(0)
+  taxRate        Float           @default(0)
+  taxCountry     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  invoice        Invoice?
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([externalId])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  organizationId String
+  paymentId      String   @unique
+  invoiceNumber  String   @unique
+  amount         Int      // subtotal in cents
+  taxAmount      Int      @default(0)
+  totalAmount    Int      // total in cents
+  currency       String   @default("usd")
+  taxRate        Float    @default(0)
+  taxType        String?  // "GST", "VAT", "Sales Tax"
+  taxCountry     String?
+  vatNumber      String?
+  companyName    String?
+  companyAddress String?
+  pdfUrl         String?
+  issuedAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  payment        Payment      @relation(fields: [paymentId], references: [id])
+
+  @@index([organizationId])
+  @@index([invoiceNumber])
+  @@index([issuedAt])
+}
+
+model UsageLimits {
+  id                  String   @id @default(uuid())
+  organizationId      String   @unique
+  postsUsed           Int      @default(0)
+  postsLimit          Int      @default(10)    // FREE: 10, PRO: 500, AGENCY: unlimited (-1)
+  accountsConnected   Int      @default(0)
+  accountsLimit       Int      @default(3)     // FREE: 3, PRO: 10, AGENCY: unlimited (-1)
+  reportsGenerated    Int      @default(0)
+  reportsLimit        Int      @default(0)     // FREE: 0, PRO: 5, AGENCY: unlimited (-1)
+  aiCreditsUsed       Int      @default(0)
+  aiCreditsLimit      Int      @default(10)    // FREE: 10/month
+  teamMembersLimit    Int      @default(1)     // FREE: 1, PRO: 5, AGENCY: unlimited (-1)
+  resetAt             DateTime @default(now()) // monthly reset
+  updatedAt           DateTime @updatedAt
+
+  organization        Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Coupon {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  discountType   String    // "percent" | "fixed"
+  discountValue  Float
+  currency       String?   // for fixed discounts
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  validFrom      DateTime  @default(now())
+  validUntil     DateTime?
+  applicableTier String?   // null = all tiers
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  usages         CouponUsage[]
+
+  @@index([code])
+  @@index([validUntil])
+}
+
+model CouponUsage {
+  id             String   @id @default(uuid())
+  couponId       String
+  organizationId String
+  usedAt         DateTime @default(now())
+
+  coupon         Coupon       @relation(fields: [couponId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([couponId, organizationId])
+}
+
+model AddOn {
+  id             String   @id @default(uuid())
+  organizationId String
+  type           String   // "extra_accounts", "extra_reports", "ai_credits"
+  quantity       Int
+  externalId     String?  // Stripe subscription item ID
+  activeUntil    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([type])
+}
+
+// ─────────────────────────────────────────────
+// REPORTS
+// ─────────────────────────────────────────────
+
+model Report {
+  id             String       @id @default(uuid())
+  organizationId String
+  title          String
+  platform       Platform?    // null = all platforms
+  periodStart    DateTime
+  periodEnd      DateTime
+  status         ReportStatus @default(PENDING)
+  pdfUrl         String?
+  aiInsights     String?      // JSON: AI-generated insights
+  emailSentAt    DateTime?
+  emailTo        String?
+  scheduledFor   DateTime?    // for scheduled reports
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String?
+  title          String
+  message        String
+  type           String    @default("info") // "info" | "warning" | "error" | "success"
+  link           String?
+  read           Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// TASKS (TEAM COLLABORATION)
+// ─────────────────────────────────────────────
+
+model Task {
+  id             String     @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  assignedToId   String?
+  createdById    String
+  dueDate        DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assignedTo     User?        @relation("assignedTasks", fields: [assignedToId], references: [id])
+  createdBy      User         @relation("createdTasks", fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ─────────────────────────────────────────────
+// WEBHOOKS
+// ─────────────────────────────────────────────
+
+model Webhook {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  url            String
+  events         String    @default("[]") // JSON array of event types
+  secret         String?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([deletedAt])
+}
+
+// ─────────────────────────────────────────────
+// OAUTH APPS (for third-party integrations)
+// ─────────────────────────────────────────────
+
+model OAuthApp {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  redirectUrl    String
+  clientId       String    @unique
+  clientSecret   String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  authorizations      OAuthAuthorization[]
+
+  @@index([clientId])
+  @@index([organizationId])
+}
+
+model OAuthAuthorization {
+  id                String    @id @default(uuid())
+  oauthAppId        String
+  userId            String
+  organizationId    String
+  accessToken       String?
+  authorizationCode String?
+  codeExpiresAt     DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  oauthApp          OAuthApp     @relation(fields: [oauthAppId], references: [id])
+  user              User         @relation(fields: [userId], references: [id])
+  organization      Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([oauthAppId, userId, organizationId])
+  @@index([accessToken])
+  @@index([authorizationCode])
+}
+
+// ─────────────────────────────────────────────
+// ANNOUNCEMENTS
+// ─────────────────────────────────────────────
+
+model Announcement {
+  id          String            @id @default(uuid())
+  title       String
+  description String
+  color       AnnouncementColor @default(INFO)
+  createdAt   DateTime          @default(now())
+}
+
+// ─────────────────────────────────────────────
+// PUBLISH LOGS
+// ─────────────────────────────────────────────
+
+enum PublishLogStatus {
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+model PublishLog {
+  id           String           @id @default(uuid())
+  postId       String
+  platform     Platform
+  status       PublishLogStatus
+  error        String?
+  apiResponse  String?          // JSON
+  attempt      Int              @default(1)
+  durationMs   Int?
+  mediaUrls    String?          // JSON — URLs used at publish time
+  createdAt    DateTime         @default(now())
+
+  post         Post             @relation(fields: [postId], references: [id])
+
+  @@index([postId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+
+
+enum InboxPlatform {
+  YOUTUBE
+  INSTAGRAM
+  FACEBOOK
+}
+
+enum SenderType {
+  USER      // external commenter/DM sender
+  OWNER     // the account owner (us)
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+  SPAM
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+model InboxConversation {
+  id                     String             @id @default(uuid())
+  organizationId         String
+  integrationId          String
+  platform               InboxPlatform
+  platformConversationId String             // YouTube videoId+commentId, FB/IG commentId
+  externalPostId         String?            // video/post this comment is on
+  externalPostTitle      String?
+  externalPostUrl        String?
+  username               String
+  userAvatar             String?
+  userId                 String?            // platform user ID
+  lastMessage            String?
+  lastMessageAt          DateTime?
+  unreadCount            Int                @default(0)
+  status                 ConversationStatus @default(OPEN)
+  sentiment              Sentiment          @default(NEUTRAL)
+  assignedToId           String?
+  isSpam                 Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  messages               InboxMessage[]
+
+  @@unique([organizationId, platform, platformConversationId])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([platform])
+  @@index([status])
+  @@index([unreadCount])
+  @@index([lastMessageAt])
+  @@index([updatedAt])
+}
+
+model InboxMessage {
+  id                String        @id @default(uuid())
+  conversationId    String
+  senderType        SenderType    @default(USER)
+  senderName        String
+  senderAvatar      String?
+  senderId          String?       // platform user ID
+  message           String
+  attachments       String?       // JSON array of attachment URLs
+  platformMessageId String?       // ID from the platform
+  likeCount         Int           @default(0)
+  isEdited          Boolean       @default(false)
+  isDeleted         Boolean       @default(false)
+  parentMessageId   String?       // for nested replies
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  conversation      InboxConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parentMessage     InboxMessage?     @relation("replies", fields: [parentMessageId], references: [id])
+  replies           InboxMessage[]    @relation("replies")
+
+  @@index([conversationId])
+  @@index([senderType])
+  @@index([createdAt])
+  @@index([platformMessageId])
+}

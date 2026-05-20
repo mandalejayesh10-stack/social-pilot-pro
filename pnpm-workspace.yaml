@@ -1,0 +1,6 @@
+packages:
+  - 'apps/*'
+  - 'libraries/*'
+
+# Shared dependencies hoisted to root
+# Individual apps can override versions in their own package.json

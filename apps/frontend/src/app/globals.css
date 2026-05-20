@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Custom scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a45; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a60; }
+
+/* ── Base ──────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: #0f0f1a;
+  color: #f0f0ff;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* ── Focus ring ────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Selection ─────────────────────────────────────────────── */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: #f0f0ff;
+}
+
+/* ── Skeleton loader ───────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #16162a 25%,
+    #1e1e35 50%,
+    #16162a 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ── Recharts overrides ────────────────────────────────────── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #16162a !important;
+  border: 1px solid #2a2a45 !important;
+  border-radius: 10px !important;
+  color: #f0f0ff !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #2a2a45 !important;
+}
+
+.recharts-text { fill: #9898b8 !important; }
+
+.recharts-legend-item-text { color: #9898b8 !important; }
+
+/* ── Prose overrides for legal pages ──────────────────────── */
+.prose-invert ul { list-style: disc; padding-left: 1.5rem; }
+.prose-invert li { margin-bottom: 0.25rem; }
+.prose-invert strong { color: #f0f0ff; }
+.prose-invert a { color: #818cf8; }
+
+/* ── Date input dark mode ──────────────────────────────────── */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+/* ── Range input ───────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #2a2a45;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+}
+
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.9); opacity: 0; }
+  60% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+.animate-slide-up { animation: slideUp 0.25s ease-out; }
+.animate-slide-in { animation: slideIn 0.25s ease-out; }
+.animate-bounce-in { animation: bounceIn 0.3s ease-out; }
+
+/* ── Line clamp utilities ──────────────────────────────────── */
+.line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.line-clamp-6 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; }
+
+/* ── Landing page specific ─────────────────────────────────── */
+.landing-gradient-text {
+  background: linear-gradient(135deg, #a78bfa, #c084fc, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Smooth scroll ─────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Custom gradient borders ───────────────────────────────── */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(#0f0f1e, #0f0f1e) padding-box,
+              linear-gradient(135deg, rgba(124,58,237,0.5), rgba(168,85,247,0.3)) border-box;
+  border: 1px solid transparent;
+}

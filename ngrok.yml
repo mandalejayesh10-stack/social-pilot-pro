@@ -1,0 +1,10 @@
+version: "3"
+agent:
+  authtoken: 3DcI7PexKsDuhHIDRqMkgwAci8t_6p7s1FVzsaGBWLH68uLqQ
+
+tunnels:
+  backend:
+    proto: http
+    addr: 3000
+    domain: grudging-kinfolk-feminist.ngrok-free.dev
+    inspect: true
