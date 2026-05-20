@@ -2,15 +2,21 @@ import type { NextConfig } from 'next';
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// The internal backend URL for server-side proxying (always localhost in dev)
-// NEXT_PUBLIC_BACKEND_URL is used for browser-side direct links (OAuth redirects, etc.)
+// In production: BACKEND_PROXY_URL points to Railway backend
+// In dev: always localhost
 const BACKEND_PROXY_URL = process.env.BACKEND_PROXY_URL || 'http://localhost:3000';
 
 const nextConfig: NextConfig = {
-  // Only use standalone in production builds
   ...(isProd ? { output: 'standalone' } : {}),
   experimental: {
-    serverActions: { allowedOrigins: ['localhost:4200'] },
+    serverActions: {
+      allowedOrigins: [
+        'localhost:4200',
+        // Allow Vercel preview + production domains
+        '*.vercel.app',
+        process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '') || '',
+      ].filter(Boolean),
+    },
   },
   async rewrites() {
     return [
@@ -19,7 +25,6 @@ const nextConfig: NextConfig = {
         destination: `${BACKEND_PROXY_URL}/api/:path*`,
       },
       {
-        // Proxy static uploaded files from backend to frontend dev server
         source: '/uploads/:path*',
         destination: `${BACKEND_PROXY_URL}/uploads/:path*`,
       },
@@ -34,6 +39,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: '**.ngrok-free.app' },
       { protocol: 'https', hostname: '**.ngrok-free.dev' },
+      { protocol: 'https', hostname: '**.railway.app' },
+      { protocol: 'https', hostname: '**.up.railway.app' },
     ],
   },
 };

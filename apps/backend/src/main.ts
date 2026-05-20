@@ -93,11 +93,16 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Swagger)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       // Allow any ngrok subdomain
       if (origin.endsWith('.ngrok-free.app') || origin.endsWith('.ngrok.io') || origin.endsWith('.ngrok-free.dev')) {
+        return callback(null, true);
+      }
+      // Allow Vercel preview + production deployments
+      if (origin.endsWith('.vercel.app')) return callback(null, true);
+      // Allow Railway deployments
+      if (origin.endsWith('.up.railway.app') || origin.endsWith('.railway.app')) {
         return callback(null, true);
       }
       callback(new Error(`CORS: origin ${origin} not allowed`));
